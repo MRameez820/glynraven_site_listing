@@ -3,7 +3,7 @@
   window.glynravenProductPricesInitialized = true;
   const money = value => new Intl.NumberFormat('en-US', {
     style: 'currency', currency: 'USD',
-    minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2
+    minimumFractionDigits: 0, maximumFractionDigits: 0
   }).format(value);
   const defaults = {
     'hemp-house': 0.15, 'artist-airstream': 0.15, 'lotus-belle-yurt': 0.15,
@@ -29,8 +29,8 @@
     const discount = groupStay ? defaults[slug] :
       (configured === undefined ? (defaults[slug] || 0) : Number(configured));
     if (!Number.isFinite(discount) || discount < 0 || discount > 1) return false;
-    const regularCents = Math.round(price * 100);
-    const directCents = Math.round(regularCents * (1 - discount));
+    const regularCents = Math.round(price) * 100;
+    const directCents = Math.round(regularCents / 100 * (1 - discount)) * 100;
     const savedCents = regularCents - directCents;
     const rate = money(directCents / 100);
     if (card.dataset.renderedRate !== rate) {
