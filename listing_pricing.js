@@ -1,9 +1,11 @@
+<script>
 (function () {
   if (window.glynravenProductPricesInitialized) return;
   window.glynravenProductPricesInitialized = true;
   const money = value => '$' + Math.round(value).toLocaleString('en-US');
   const defaults = {
-    'hemp-house': 0.15, 'artist-airstream': 0.15, 'lotus-belle-yurt': 0.15
+    'hemp-house': 0.15, 'artist-airstream': 0.15, 'lotus-belle-yurt': 0.15,
+    'hillside-manor': 0.15, 'the-hostel': 0.15
   };
   const titles = {
     'Hemp House': 'hemp-house', 'Artist Airstream': 'artist-airstream',
@@ -19,7 +21,11 @@
     const direct = card.querySelector('.direct');
     if (!direct) return false;
     const configured = card.dataset.discount;
-    const discount = configured === undefined ? (defaults[cardSlug(card)] || 0) : Number(configured);
+    const slug = cardSlug(card);
+    // Override the old group-card data-discount="0" placeholders.
+    const groupStay = slug === 'hillside-manor' || slug === 'the-hostel';
+    const discount = groupStay ? defaults[slug] :
+      (configured === undefined ? (defaults[slug] || 0) : Number(configured));
     if (!Number.isFinite(discount) || discount < 0 || discount > 1) return false;
     const rate = money(price * (1 - discount));
     if (card.dataset.renderedRate !== rate) {
@@ -143,3 +149,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
 })();
+</script>
