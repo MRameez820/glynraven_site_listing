@@ -2,7 +2,10 @@
 (function () {
   if (window.glynravenProductPricesInitialized) return;
   window.glynravenProductPricesInitialized = true;
-  const money = value => '$' + Math.round(value).toLocaleString('en-US');
+  const money = value => new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD',
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2
+  }).format(value);
   const defaults = {
     'hemp-house': 0.15, 'artist-airstream': 0.15, 'lotus-belle-yurt': 0.15,
     'hillside-manor': 0.15, 'the-hostel': 0.15
@@ -19,7 +22,7 @@
 
   function renderPrice(card, price) {
     const direct = card.querySelector('.direct');
-    if (!direct) return false;
+    if (!direct || !Number.isFinite(price) || price < 0) return false;
     const configured = card.dataset.discount;
     const slug = cardSlug(card);
     // Override the old group-card data-discount="0" placeholders.
@@ -27,7 +30,10 @@
     const discount = groupStay ? defaults[slug] :
       (configured === undefined ? (defaults[slug] || 0) : Number(configured));
     if (!Number.isFinite(discount) || discount < 0 || discount > 1) return false;
-    const rate = money(price * (1 - discount));
+    const regularCents = Math.round(price * 100);
+    const directCents = Math.round(regularCents * (1 - discount));
+    const savedCents = regularCents - directCents;
+    const rate = money(directCents / 100);
     if (card.dataset.renderedRate !== rate) {
       const label = direct.querySelector('small');
       direct.replaceChildren(document.createTextNode(rate));
@@ -36,10 +42,14 @@
     }
     const regular = card.querySelector('.was s');
     if (regular && regular.textContent !== money(price)) regular.textContent = money(price);
-    card.dataset.nightlySavings = String(price * discount);
+    card.dataset.nightlySavings = String(savedCents / 100);
+    card.dataset.nightlySavingsCents = String(savedCents);
+    const discountLabel = card.querySelector('.discount-label');
+    const discountText = 'Save ' + money(savedCents / 100) + '/night (' + Math.round(discount * 100) + '%)';
+    if (discountLabel && discountLabel.textContent !== discountText) discountLabel.textContent = discountText;
     const count = card.querySelector('.night-count');
     const savings = card.querySelector('.savings');
-    const saved = money(price * discount * Number(count?.dataset.nights || 2));
+    const saved = money(savedCents * Number(count?.dataset.nights || 2) / 100);
     if (savings && savings.textContent !== saved) savings.textContent = saved;
     return true;
   }
@@ -89,7 +99,7 @@
           const variant = byBedroom.get(option.value.trim().toLowerCase());
           if (!variant) { allOptions = false; return; }
           option.dataset.price = variant.price.value;
-          const label = variant.attributes.Bedrooms + ' — ' + money(Number(variant.price.value)) + ' / night';
+          const label = variant.attributes.Bedrooms;
           if (option.textContent !== label) option.textContent = label;
         });
         const selected = byBedroom.get(select.value.trim().toLowerCase());
@@ -101,13 +111,18 @@
     return complete;
   }
 
-  document.addEventListener('change', event => {
+  function updateBedroomPrice(event) {
     if (!(event.target instanceof Element)) return;
     const select = event.target.closest('#glynraven-listings .bedroom-selector');
     if (!select) return;
+    const card = select.closest('.card');
     const option = select.selectedOptions[0];
-    if (option && option.dataset.price !== undefined) renderPrice(select.closest('.card'), Number(option.dataset.price));
-  });
+    if (!card || !option) return;
+    if (option.dataset.price !== undefined) renderPrice(card, Number(option.dataset.price));
+  }
+  // Capture both events so other page handlers cannot swallow the update.
+  document.addEventListener('input', updateBedroomPrice, true);
+  document.addEventListener('change', updateBedroomPrice, true);
 
   document.addEventListener('click', async event => {
     if (!(event.target instanceof Element)) return;
@@ -128,7 +143,7 @@
     count.dataset.nights = String(nights);
     count.textContent = nights + (nights === 1 ? ' night' : ' nights');
     const savings = card.querySelector('.savings');
-    if (savings) savings.textContent = money(Number(card.dataset.nightlySavings || 0) * nights);
+    if (savings) savings.textContent = money(Number(card.dataset.nightlySavingsCents || Math.round(Number(card.dataset.nightlySavings || 0) * 100)) * nights / 100);
   });
 
   function start() {
